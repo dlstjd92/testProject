@@ -1,5 +1,7 @@
 package com.inspark.testproject.services
 
+import reactor.core.publisher.Mono
+
 interface GdalService {
-    fun process(bucketIn: String, keyIn: String, bucketOut: String, targetKey: String): Boolean
+    fun process(bucketIn: String, keyIn: String, bucketOut: String, targetKey: String): Mono<Void>
 }

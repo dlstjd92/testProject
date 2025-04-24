@@ -2,11 +2,11 @@ package com.inspark.testproject.services
 
 import reactor.core.publisher.Mono
 import com.inspark.testproject.repositories.GeoTiffMetadataRepository
+import reactor.core.scheduler.Schedulers
 
 import org.springframework.stereotype.Service
 import com.inspark.testproject.domain.GeoTiffMetadata
 import software.amazon.awssdk.services.s3.S3AsyncClient
-import software.amazon.awssdk.services.s3.model.PutObjectRequest
 import software.amazon.awssdk.transfer.s3.S3TransferManager
 import software.amazon.awssdk.transfer.s3.model.DownloadFileRequest
 import software.amazon.awssdk.transfer.s3.progress.LoggingTransferListener
@@ -21,28 +21,57 @@ class GdalServiceImpl(
     // Initialize crtClient, listener, and transferManager once for reuse
     private val crtClient = S3AsyncClient.crtBuilder()
         .region(software.amazon.awssdk.regions.Region.AP_NORTHEAST_2)
+        .minimumPartSizeInBytes(8 * 1024 * 1024)
+        .maxConcurrency(64)
+        .targetThroughputInGbps(20.0)
         .build()
 
     private val listener = LoggingTransferListener.create()
 
     private val transferManager = S3TransferManager.builder()
         .s3Client(crtClient)
+
         .build()
 
-    private fun downloadFileFromS3(bucket: String, key: String, localPath: Path): Mono<Void> {
-        println("[📥] S3 파일 다운로드 시작: bucket=$bucket, key=$key")
+    private val threadCount = 15
+    private val scheduler = Schedulers.newParallel("gdal-parallel", threadCount)
 
-        val downloadRequest = DownloadFileRequest.builder()
-            .getObjectRequest { it.bucket(bucket).key(key) }
-            .destination(localPath)
-            .addTransferListener(listener)
-            .build()
+     private fun downloadFileFromS3(bucket: String, key: String, localPath: Path): Mono<Void> {
+         println("[📥] S3 파일 다운로드 시작: bucket=$bucket, key=$key")
 
-        return Mono.fromFuture {
-            transferManager.downloadFile(downloadRequest)
-                .completionFuture()
-        }.then()
-    }
+         val downloadRequest = DownloadFileRequest.builder()
+             .getObjectRequest { it.bucket(bucket).key(key) }
+             .destination(localPath)
+             .addTransferListener(listener)
+             .build()
+
+         return Mono.fromFuture {
+             transferManager.downloadFile(downloadRequest)
+                 .completionFuture()
+         }.then()
+     }
+//    private fun downloadFileFromS3(bucket: String, key: String, localPath: Path): Mono<Void> {
+//        println("[📥] S3 파일 다운로드 (AWS CLI) 시작: bucket=$bucket, key=$key")
+//        return Mono.fromCallable {
+//            val cliCommand = listOf(
+//                "aws", "s3", "cp",
+//                "s3://$bucket/$key",
+//                localPath.toString(),
+//                "--expected-size",
+//                "1073741824",
+////                "--only-show-errors",
+////                "--quiet"
+//            )
+//            val process = ProcessBuilder(cliCommand)
+//                .inheritIO()
+//                .start()
+//            if (process.waitFor() != 0) {
+//                throw RuntimeException("AWS CLI 다운로드 실패: exit code=${process.exitValue()}")
+//            }
+//        }
+//        .subscribeOn(scheduler)
+//        .then()
+//    }
 
     fun convertToCOG(inputPath: Path, outputPath: Path): Boolean {
         val fileSizeBytes = Files.size(inputPath)
@@ -50,7 +79,7 @@ class GdalServiceImpl(
 
         val command = mutableListOf(
             "gdal_translate", "-of", "COG",
-            "-co", "COMPRESS=DEFLATE",
+            "-co", "COMPRESS=ZSTD",
             "-co", "NUM_THREADS=ALL_CPUS"
         )
         if (isBigTiffNeeded) {
@@ -59,13 +88,26 @@ class GdalServiceImpl(
         command.add(inputPath.toString())
         command.add(outputPath.toString())
 
-        val process = ProcessBuilder(command).inheritIO().start()
+        val processBuilder = ProcessBuilder(command)
+            .inheritIO()
+        // 할당할 GDAL 캐시 크기(1 GB)
+        processBuilder.environment()["GDAL_CACHEMAX"] = "1073741824"
+        val process = processBuilder.start()
         return process.waitFor() == 0
     }
 
     fun uploadFileToS3(bucket: String, key: String, localPath: Path): Mono<Void> {
-        val request = PutObjectRequest.builder().bucket(bucket).key(key).build()
-        return Mono.fromFuture { s3Client.putObject(request, localPath) }.then()
+        println("[📤] S3 파일 업로드 시작: bucket=$bucket, key=$key")
+
+        val uploadRequest = software.amazon.awssdk.transfer.s3.model.UploadFileRequest.builder()
+            .putObjectRequest { it.bucket(bucket).key(key) }
+            .source(localPath)
+            .addTransferListener(listener)
+            .build()
+
+        return Mono.fromFuture {
+            transferManager.uploadFile(uploadRequest).completionFuture()
+        }.then()
     }
 
     fun extractMetadata(file: Path, s3Key: String): Mono<GeoTiffMetadata> {
@@ -111,36 +153,55 @@ class GdalServiceImpl(
         .doOnError { println("[!] 메타데이터 추출 실패: ${it.message}") }
     }
 
-    override fun process(bucketIn: String, keyIn: String, bucketOut: String, targetKey: String): Boolean {
+    override fun process(bucketIn: String, keyIn: String, bucketOut: String, targetKey: String): Mono<Void> {
         val localInput = Files.createTempFile("input_", ".tif")
         val localOutput = Files.createTempFile("output_", ".tif")
-
-        val startTime = System.currentTimeMillis()
-
+        val startTotal = System.currentTimeMillis()
+        var downloadDuration = 0L
+        var convertDuration = 0L
+        var uploadDuration = 0L
         val finalKey = determineFinalKey(keyIn, targetKey)
 
-        downloadFileFromS3(bucketIn, keyIn, localInput)
-            .then(Mono.fromCallable {
+        return Mono.fromCallable {
+            val s = System.currentTimeMillis()
+            downloadFileFromS3(bucketIn, keyIn, localInput).block()
+            downloadDuration = System.currentTimeMillis() - s
+        }
+        .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+        .then(
+            Mono.fromCallable {
+                val s = System.currentTimeMillis()
                 val success = convertToCOG(localInput, localOutput)
                 if (!success) {
-                    localInput.toFile().delete()
-                    localOutput.toFile().delete()
                     throw RuntimeException("COG 변환 실패")
                 }
-            })
-            .then(extractMetadata(localOutput, finalKey))
-            .then(uploadFileToS3(bucketOut, finalKey, localOutput))
-            .doOnSuccess {
-                val duration = (System.currentTimeMillis() - startTime) / 1000.0
-                println("[⏱] 전체 소요 시간: ${duration}초")
+                convertDuration = System.currentTimeMillis() - s
             }
-            .doFinally {
-                localInput.toFile().delete()
-                localOutput.toFile().delete()
+            .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+        )
+        .then(
+            Mono.fromCallable {
+                val s = System.currentTimeMillis()
+                uploadFileToS3(bucketOut, finalKey, localOutput).block()
+                uploadDuration = System.currentTimeMillis() - s
             }
-            .subscribe()
-
-        return true
+            .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+        )
+        .doOnSuccess {
+            val totalSeconds = (System.currentTimeMillis() - startTotal) / 1000.0
+            println("[⏱] 전체 소요 시간: ${"%.2f".format(totalSeconds)}초 " +
+                    "(다운로드: ${downloadDuration/1000}s, " +
+                    "변환: ${convertDuration/1000}s, " +
+                    "업로드: ${uploadDuration/1000}s)")
+        }
+        .doOnError {
+            println("[!] 처리 중 오류 발생: ${it.message}")
+        }
+        .doFinally {
+            localInput.toFile().delete()
+            localOutput.toFile().delete()
+        }
+        .then()
     }
 
     private fun determineFinalKey(keyIn: String, targetKey: String): String {
