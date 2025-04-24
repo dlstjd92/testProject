@@ -21,6 +21,11 @@ class GdalConverterController(
 
     @PostMapping("/convert")
     fun convertFile(@RequestBody request: ConvertRequest): Boolean {
-        return gdalService.process(request.bucketIn, request.key, request.bucketOut, request.userPrefix)
+        return gdalService.process(
+            bucketIn = request.bucketIn,
+            keyIn = request.key,
+            bucketOut = request.bucketOut,
+            targetKey = request.targetKey
+        )
     }
 }

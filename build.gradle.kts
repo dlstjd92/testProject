@@ -51,6 +51,10 @@ dependencies {
 
     testImplementation("io.mockk:mockk:1.13.8")
     testImplementation("org.springframework:spring-test")
+
+    implementation("software.amazon.awssdk:s3-transfer-manager:2.25.4")
+    implementation("software.amazon.awssdk.crt:aws-crt:0.29.14")
+    implementation("software.amazon.awssdk:s3-transfer-manager:2.25.4")
 }
 
 kotlin {
