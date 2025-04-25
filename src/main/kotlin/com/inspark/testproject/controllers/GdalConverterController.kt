@@ -15,7 +15,7 @@ class GdalConverterController(
     private val gdalService: GdalService
 ) {
 
-    private val concurrency = 5
+    private val concurrency = 15
 
     @GetMapping("/ping")
     fun ping(): String {

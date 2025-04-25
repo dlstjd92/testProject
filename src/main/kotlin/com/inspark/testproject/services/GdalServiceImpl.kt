@@ -263,14 +263,13 @@ class GdalServiceImpl(
         var downloadDuration = 0L
         var convertDuration = 0L
         var uploadDuration = 0L
+        var downloadStart = 0L
         val finalKey = determineFinalKey(keyIn, targetKey)
 
-        return Mono.fromCallable {
-            val s = System.currentTimeMillis()
-            downloadFileFromS3(bucketIn, keyIn, localInput).block()
-            downloadDuration = System.currentTimeMillis() - s
-        }
-        .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+        return downloadFileFromS3(bucketIn, keyIn, localInput)
+            .doOnSubscribe { downloadStart = System.currentTimeMillis() }
+            .doOnSuccess { downloadDuration = System.currentTimeMillis() - downloadStart }
+            .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
         .then(
             Mono.fromCallable {
                 val s = System.currentTimeMillis()

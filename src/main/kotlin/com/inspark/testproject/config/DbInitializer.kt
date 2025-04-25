@@ -33,7 +33,7 @@ class DbInitializer(private val client: DatabaseClient) {
 
         client.sql(
             """
-        CREATE TABLE IF NOT EXISTS raw_geotiff (
+        CREATE TABLE IF NOT EXISTS raw_geotiff_log (
             id IDENTITY PRIMARY KEY,
             original_filename VARCHAR(255),
             checksum VARCHAR(255),

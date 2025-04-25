@@ -26,7 +26,7 @@ data class GeoTiffMetadata(
 )
 
 
-@Table("raw_geotiff")
+@Table("raw_geotiff_log")
 data class RawGeoTiff(
     @Id
     val id: Long? = null,
