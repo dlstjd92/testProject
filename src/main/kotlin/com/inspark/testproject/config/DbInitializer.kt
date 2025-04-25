@@ -24,9 +24,24 @@ class DbInitializer(private val client: DatabaseClient) {
                 band_count INT,
                 color_interpretation VARCHAR(255),
                 compression VARCHAR(255),
+                upload_count INT DEFAULT 1,
+                last_upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """.trimIndent()
+        ).then().subscribe()
+
+        client.sql(
+            """
+        CREATE TABLE IF NOT EXISTS raw_geotiff (
+            id IDENTITY PRIMARY KEY,
+            original_filename VARCHAR(255),
+            checksum VARCHAR(255),
+            upload_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            file_size BIGINT,
+            metadata_id BIGINT
+        )
+        """.trimIndent()
         ).then().subscribe()
     }
 }
