@@ -21,7 +21,11 @@ class S3Controller(
 
     @PostMapping("/getList")
     fun listBucketFiles(@RequestBody request: ListRequest): List<String> {
-        return s3ListService.listObjectsInBucket(request.bucket)
+        // if prefix is not provided, use empty string
+        return s3ListService.listObjectsInBucket(
+            request.bucket,
+            request.prefix ?: ""
+        )
     }
 
 }

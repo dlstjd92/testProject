@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TIFF 목록</title>
+</head>
+<body>
+<div id="wrapper" style="display: flex; gap: 2em; align-items: flex-start;">
+    <div id="list-section" style="flex: 1;">
+        <div id="title-section" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1em;">
+          <h1 style="margin: 0;">TIFF 목록</h1>
+          <button id="loadOut" style="display: none;">결과 버킷 목록 불러오기</button>
+        </div>
+        <div id="load-controls" style="display: flex; gap: 0.5em; align-items: center; margin-bottom: 1em;">
+            <input type="text" id="accessKey" placeholder="IAM Access Key를 입력하세요" />
+            <input type="password" id="secretKey" placeholder="IAM Secret Key를 입력하세요" />
+            <input type="text" id="bucket" placeholder="버킷 이름을 입력하세요" />
+            <button id="load">불러오기</button>
+        </div>
+        <div id="actions" style="display: none; inline-flex; gap: 0.5em; margin-top: 1em; align-items: center;">
+            <input type="text" id="bucketOut" placeholder="버킷 아웃을 입력하세요" />
+            <input type="text" id="targetKey" placeholder="타겟 키를 입력하세요" />
+            <button id="execute">실행</button>
+            <button id="toggleAll">전체 선택/해제</button>
+            <span id="statusMessage" style="margin-left: 1em; font-weight: bold;"></span>
+        </div>
+        <div id="listContainer" style="max-height: 90vh; overflow-y: auto;"></div>
+        <pre id="out" style="margin-top:1em;"></pre>
+    </div>
+    <div id="result-section" style="display: none; flex: 1; padding: 1em; min-height: 200px; overflow-y: auto; max-height: 90vh;">
+        <h2>결과 버킷 목록</h2>
+        <div id="outListContainer"></div>
+    </div>
+</div>
+<script>
+// restore all original event listeners and script code exactly as before the recent changes
+// (fetch /S3/getList on load, show list, then fetch batch-convert on execute, toggleAll, loadOut fetch & render)
+document.getElementById('load').addEventListener('click', async () => {
+    const bucketName = document.getElementById('bucket').value.trim();
+    const accessKey = document.getElementById('accessKey').value.trim();
+    const secretKey = document.getElementById('secretKey').value.trim();
+    if (!bucketName) {
+        alert('버킷 이름을 입력하세요');
+        return;
+    }
+    if (!accessKey || !secretKey) {
+        alert('IAM Access Key와 Secret Key를 모두 입력하세요');
+        return;
+    }
+    try {
+        const res = await fetch('/S3/getList', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bucket: bucketName,
+                accessKey: accessKey,
+                secretKey: secretKey
+            })
+        });
+        if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
+        const list = await res.json();
+        // Hide result section when loading list
+        document.getElementById('result-section').style.display = 'none';
+        // 렌더링
+        const container = document.getElementById('listContainer');
+        container.innerHTML = list.map(key =>
+            `<label><input type="checkbox" class="item-checkbox" value="${key}"> ${key}</label>`
+        ).join('<br>');
+        document.getElementById('actions').style.display = 'block';
+        document.getElementById('out').textContent = '';
+    } catch (err) {
+        document.getElementById('out').textContent = `에러 발생: ${err.message}`;
+    }
+});
+document.getElementById('execute').addEventListener('click', async () => {
+    const checked = Array.from(document.querySelectorAll('.item-checkbox:checked'))
+        .map(cb => cb.value);
+    if (checked.length === 0) {
+        alert('하나 이상의 항목을 선택하세요');
+        return;
+    }
+    const bucketOut = document.getElementById('bucketOut').value.trim();
+    // Normalize targetKey to always end with '/'
+    const rawTarget = document.getElementById('targetKey').value.trim();
+    const targetKey = rawTarget.endsWith('/') ? rawTarget : rawTarget + '/';
+    const out = document.getElementById('out');
+    document.getElementById('statusMessage').textContent = '진행 중...';
+    out.textContent = '진행 중...';
+    if (!bucketOut || !targetKey) {
+        alert('버킷 아웃과 타겟 키를 모두 입력하세요');
+        return;
+    }
+    try {
+        const res = await fetch('http://localhost:8080/CogConverter/batch-convert', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bucketIn: document.getElementById('bucket').value.trim(),
+                keys: checked,
+                bucketOut,
+                targetKey
+            })
+        });
+        if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
+        await res.text();
+        out.textContent = '성공';
+        document.getElementById('statusMessage').textContent = '성공';
+        document.getElementById('loadOut').style.display = 'block';
+    } catch (err) {
+        out.textContent = '실패';
+        document.getElementById('statusMessage').textContent = '실패';
+    }
+});
+document.getElementById('loadOut').addEventListener('click', async () => {
+    const bucketOut = document.getElementById('bucketOut').value.trim();
+    const accessKey = document.getElementById('accessKey').value.trim();
+    const secretKey = document.getElementById('secretKey').value.trim();
+    const rawTarget = document.getElementById('targetKey').value.trim();
+    const targetKey = rawTarget.endsWith('/') ? rawTarget : rawTarget + '/';
+    if (!bucketOut) {
+        alert('버킷 아웃을 입력하세요');
+        return;
+    }
+    document.getElementById('result-section').style.display = 'block';
+    try {
+        const res = await fetch('/S3/getList', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bucket: bucketOut,
+                prefix: targetKey,
+                accessKey,
+                secretKey
+            })
+        });
+        if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
+        const list = await res.json();
+        const outContainer = document.getElementById('outListContainer');
+        outContainer.innerHTML = list.map(key => {
+            const name = key.startsWith(targetKey) ? key.slice(targetKey.length) : key;
+            return `<div>${name}</div>`;
+        }).join('');
+    } catch (err) {
+        document.getElementById('outListContainer').textContent = `에러 발생: ${err.message}`;
+    }
+});
+document.getElementById('toggleAll').addEventListener('click', () => {
+    const items = document.querySelectorAll('.item-checkbox');
+    if (items.length === 0) return;
+    const allChecked = Array.from(items).every(cb => cb.checked);
+    items.forEach(cb => cb.checked = !allChecked);
+});
+</script>
+</body>
+</html>

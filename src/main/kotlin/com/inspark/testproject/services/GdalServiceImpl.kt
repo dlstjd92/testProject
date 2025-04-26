@@ -170,17 +170,18 @@ class GdalServiceImpl(
                     val now = java.time.Instant.now()
                     // Find exact match (deduplication by filename)
                     val existing = existingList.find { it.filename == metadata.filename }
-                    val sequence = if (existingList.isEmpty()) 1 else existingList.size + 1
+                    // Determine the new upload count based on existing metadata
+                    val newUploadCount = if (existing != null) existing.uploadCount + 1 else 1
                     val nameOnly = baseName.substringBeforeLast(".")
-                    val finalS3Key = "%s_to_cog_%d".format(nameOnly, sequence)
+                    val finalS3Key = "${nameOnly}_to_cog_${newUploadCount}"
                     val updatedMetadata = if (existing != null) {
                         existing.copy(
-                            uploadCount = existing.uploadCount + 1,
+                            uploadCount = newUploadCount,
                             lastUploadTime = LocalDateTime.ofInstant(now, java.time.ZoneId.systemDefault())
                         )
                     } else {
                         metadata.copy(
-                            uploadCount = 1,
+                            uploadCount = newUploadCount,
                             lastUploadTime = LocalDateTime.ofInstant(now, java.time.ZoneId.systemDefault())
                         )
                     }
@@ -264,7 +265,7 @@ class GdalServiceImpl(
         var convertDuration = 0L
         var uploadDuration = 0L
         var downloadStart = 0L
-        val finalKey = determineFinalKey(keyIn, targetKey)
+        // val finalKey = determineFinalKey(keyIn, targetKey) // No longer used
 
         return downloadFileFromS3(bucketIn, keyIn, localInput)
             .doOnSubscribe { downloadStart = System.currentTimeMillis() }
@@ -286,9 +287,8 @@ class GdalServiceImpl(
                 .flatMap { savedMeta ->
                     val baseName = keyIn.substringBeforeLast(".")
                     val seq = savedMeta.uploadCount
-                    // Determine final key: if targetKey is a prefix (ends with '/'), append generated name; otherwise use provided targetKey
                     val finalUploadKey = if (targetKey.endsWith("/")) {
-                        "${targetKey}${baseName}_to_cog_${seq}.tiff"
+                        "$targetKey${baseName}_to_cog_${seq}.tiff"
                     } else {
                         targetKey
                     }

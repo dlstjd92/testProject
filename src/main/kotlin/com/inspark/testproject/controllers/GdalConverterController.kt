@@ -43,14 +43,11 @@ class GdalConverterController(
     fun convertMultipleFiles(@RequestBody request: BatchConvertRequest): Mono<Void> {
         return reactor.core.publisher.Flux.fromIterable(request.keys)
             .flatMap({ key ->
-                val baseName = key.substringBeforeLast(".")
-                val finalTargetKey = "${request.targetKey}${baseName}_to_cog_1.tiff"
-
                 gdalService.process(
                     bucketIn = request.bucketIn,
                     keyIn = key,
                     bucketOut = request.bucketOut,
-                    targetKey = finalTargetKey
+                    targetKey = request.targetKey
                 )
             }, concurrency)
             .then()

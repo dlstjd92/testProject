@@ -9,10 +9,13 @@ class S3ListServiceImpl(
     private val s3Client: S3AsyncClient
 ) : S3ListService {
 
-    override fun listObjectsInBucket(bucket: String): List<String> {
-        val request = ListObjectsV2Request.builder()
+    override fun listObjectsInBucket(bucket: String, prefix: String): List<String> {
+        val builder = ListObjectsV2Request.builder()
             .bucket(bucket)
-            .build()
+        if (prefix.isNotBlank()) {
+            builder.prefix(prefix)
+        }
+        val request = builder.build()
 
         val response = s3Client.listObjectsV2(request).get()
         return response.contents().map { it.key() }
