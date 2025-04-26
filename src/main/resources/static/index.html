@@ -13,20 +13,18 @@
           <button id="loadOut" style="display: none;">결과 버킷 목록 불러오기</button>
         </div>
         <div id="load-controls" style="display: flex; gap: 0.5em; align-items: center; margin-bottom: 1em;">
-            <input type="text" id="accessKey" placeholder="IAM Access Key를 입력하세요" />
-            <input type="password" id="secretKey" placeholder="IAM Secret Key를 입력하세요" />
-            <input type="text" id="bucket" placeholder="버킷 이름을 입력하세요" />
+            <input type="text" id="bucket" placeholder="조회할 버킷 이름을 입력하세요" />
             <button id="load">불러오기</button>
         </div>
         <div id="actions" style="display: none; inline-flex; gap: 0.5em; margin-top: 1em; align-items: center;">
-            <input type="text" id="bucketOut" placeholder="버킷 아웃을 입력하세요" />
-            <input type="text" id="targetKey" placeholder="타겟 키를 입력하세요" />
+            <input type="text" id="bucketOut" placeholder="목표 버켓이름을 입력하세요" />
+            <input type="text" id="targetKey" placeholder="타겟 디렉토리를 입력하세요" />
             <button id="execute">실행</button>
             <button id="toggleAll">전체 선택/해제</button>
             <span id="statusMessage" style="margin-left: 1em; font-weight: bold;"></span>
         </div>
+
         <div id="listContainer" style="max-height: 90vh; overflow-y: auto;"></div>
-        <pre id="out" style="margin-top:1em;"></pre>
     </div>
     <div id="result-section" style="display: none; flex: 1; padding: 1em; min-height: 200px; overflow-y: auto; max-height: 90vh;">
         <h2>결과 버킷 목록</h2>
@@ -38,14 +36,8 @@
 // (fetch /S3/getList on load, show list, then fetch batch-convert on execute, toggleAll, loadOut fetch & render)
 document.getElementById('load').addEventListener('click', async () => {
     const bucketName = document.getElementById('bucket').value.trim();
-    const accessKey = document.getElementById('accessKey').value.trim();
-    const secretKey = document.getElementById('secretKey').value.trim();
     if (!bucketName) {
         alert('버킷 이름을 입력하세요');
-        return;
-    }
-    if (!accessKey || !secretKey) {
-        alert('IAM Access Key와 Secret Key를 모두 입력하세요');
         return;
     }
     try {
@@ -53,9 +45,7 @@ document.getElementById('load').addEventListener('click', async () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                bucket: bucketName,
-                accessKey: accessKey,
-                secretKey: secretKey
+                bucket: bucketName
             })
         });
         if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
@@ -68,9 +58,8 @@ document.getElementById('load').addEventListener('click', async () => {
             `<label><input type="checkbox" class="item-checkbox" value="${key}"> ${key}</label>`
         ).join('<br>');
         document.getElementById('actions').style.display = 'block';
-        document.getElementById('out').textContent = '';
     } catch (err) {
-        document.getElementById('out').textContent = `에러 발생: ${err.message}`;
+        // document.getElementById('out').textContent = `에러 발생: ${err.message}`;
     }
 });
 document.getElementById('execute').addEventListener('click', async () => {
@@ -84,9 +73,7 @@ document.getElementById('execute').addEventListener('click', async () => {
     // Normalize targetKey to always end with '/'
     const rawTarget = document.getElementById('targetKey').value.trim();
     const targetKey = rawTarget.endsWith('/') ? rawTarget : rawTarget + '/';
-    const out = document.getElementById('out');
     document.getElementById('statusMessage').textContent = '진행 중...';
-    out.textContent = '진행 중...';
     if (!bucketOut || !targetKey) {
         alert('버킷 아웃과 타겟 키를 모두 입력하세요');
         return;
@@ -104,18 +91,14 @@ document.getElementById('execute').addEventListener('click', async () => {
         });
         if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
         await res.text();
-        out.textContent = '성공';
         document.getElementById('statusMessage').textContent = '성공';
         document.getElementById('loadOut').style.display = 'block';
     } catch (err) {
-        out.textContent = '실패';
         document.getElementById('statusMessage').textContent = '실패';
     }
 });
 document.getElementById('loadOut').addEventListener('click', async () => {
     const bucketOut = document.getElementById('bucketOut').value.trim();
-    const accessKey = document.getElementById('accessKey').value.trim();
-    const secretKey = document.getElementById('secretKey').value.trim();
     const rawTarget = document.getElementById('targetKey').value.trim();
     const targetKey = rawTarget.endsWith('/') ? rawTarget : rawTarget + '/';
     if (!bucketOut) {
@@ -129,9 +112,7 @@ document.getElementById('loadOut').addEventListener('click', async () => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 bucket: bucketOut,
-                prefix: targetKey,
-                accessKey,
-                secretKey
+                prefix: targetKey
             })
         });
         if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
