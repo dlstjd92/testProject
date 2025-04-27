@@ -1,7 +1,7 @@
-package com.inspark.testproject.services
+package com.inspark.services
 
-import com.inspark.testproject.domain.GeoTiffMetadata
-import com.inspark.testproject.repositories.GeoTiffMetadataRepository
+import com.inspark.domain.GeoTiffMetadata
+import com.inspark.repositories.GeoTiffMetadataRepository
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono

@@ -1,10 +1,9 @@
-package com.inspark.testproject.controllers
+package com.inspark.controllers
 
-import com.inspark.testproject.domain.GeoTiffMetadata
-import com.inspark.testproject.services.MetadataQueryService
+import com.inspark.domain.GeoTiffMetadata
+import com.inspark.services.MetadataQueryService
 import org.springframework.web.bind.annotation.*
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 
 @RestController
 @RequestMapping("/metadata")

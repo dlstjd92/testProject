@@ -1,4 +1,4 @@
-package com.inspark.testproject.services
+package com.inspark.services
 
 import org.springframework.stereotype.Service
 import software.amazon.awssdk.services.s3.S3AsyncClient

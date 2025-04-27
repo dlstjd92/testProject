@@ -1,4 +1,4 @@
-package com.inspark.testproject.config
+package com.inspark.config
 
 import jakarta.annotation.PostConstruct
 import org.springframework.r2dbc.core.DatabaseClient

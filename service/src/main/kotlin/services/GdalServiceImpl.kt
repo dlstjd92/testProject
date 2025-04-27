@@ -1,17 +1,17 @@
-package com.inspark.testproject.services
+package com.inspark.services
 
 import org.springframework.transaction.reactive.TransactionalOperator
 
 import reactor.core.publisher.Mono
-import com.inspark.testproject.repositories.GeoTiffMetadataRepository
-import com.inspark.testproject.repositories.RawGeoTiffRepository
+import com.inspark.repositories.GeoTiffMetadataRepository
+import com.inspark.repositories.RawGeoTiffRepository
 import reactor.core.scheduler.Schedulers
 
 import java.time.LocalDateTime
 
 import org.springframework.stereotype.Service
-import com.inspark.testproject.domain.GeoTiffMetadata
-import com.inspark.testproject.domain.RawGeoTiff
+import com.inspark.domain.GeoTiffMetadata
+import com.inspark.domain.RawGeoTiff
 import software.amazon.awssdk.services.s3.S3AsyncClient
 import software.amazon.awssdk.transfer.s3.S3TransferManager
 import software.amazon.awssdk.transfer.s3.model.DownloadFileRequest

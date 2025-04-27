@@ -1,7 +1,7 @@
-package com.inspark.testproject.controllers
+package com.inspark.controllers
 
-import com.inspark.testproject.services.S3ListService
-import com.inspark.testproject.dto.ListRequest
+import com.inspark.services.S3ListService
+import com.inspark.DTO.ListRequest
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.GetMapping

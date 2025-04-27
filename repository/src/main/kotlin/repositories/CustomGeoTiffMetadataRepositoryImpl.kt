@@ -1,13 +1,13 @@
-package com.inspark.testproject.repositories
+package com.inspark.repositories
 
-import com.inspark.testproject.domain.GeoTiffMetadata
+import com.inspark.domain.GeoTiffMetadata
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.stereotype.Repository
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
 @Repository
-class CustomGeoTiffMetadataRepositoryImpl(
+open class CustomGeoTiffMetadataRepositoryImpl(
     private val db: DatabaseClient
 ) : CustomGeoTiffMetadataRepository {
 

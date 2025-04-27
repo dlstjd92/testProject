@@ -1,7 +1,7 @@
-package com.inspark.testproject.controllers
+package com.inspark.controllers
 
-import com.inspark.testproject.services.GdalService
-import com.inspark.testproject.dto.ConvertRequest
+import com.inspark.services.GdalService
+import com.inspark.DTO.ConvertRequest
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.bind.annotation.GetMapping

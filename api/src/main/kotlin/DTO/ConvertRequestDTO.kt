@@ -1,4 +1,4 @@
-package com.inspark.testproject.dto
+package com.inspark.DTO
 
 data class ConvertRequest(
     val bucketIn: String,

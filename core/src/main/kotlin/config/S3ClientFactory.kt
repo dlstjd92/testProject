@@ -1,4 +1,4 @@
-package com.inspark.testproject.config
+package com.inspark.config
 import kotlinx.serialization.*
 import kotlinx.serialization.json.*
 import org.springframework.context.annotation.Bean
@@ -10,7 +10,7 @@ import software.amazon.awssdk.services.s3.S3AsyncClient
 import java.io.File
 
 @Configuration
-class S3ClientConfig {
+open class S3ClientConfig {
     private val CONFIG_PATH = "config.json"
 
     @Serializable
@@ -21,7 +21,7 @@ class S3ClientConfig {
     )
 
     @Bean
-    fun s3AsyncClient(): S3AsyncClient {
+    open fun s3AsyncClient(): S3AsyncClient {
         val text = File(CONFIG_PATH).readText()
         val config = Json.decodeFromString<AwsConfig>(text)
 

@@ -1,18 +1,20 @@
 plugins {
     kotlin("jvm")
-}
-
-group = "com.inspark"
-version = "0.0.1-SNAPSHOT"
-
-repositories {
-    mavenCentral()
+    kotlin("plugin.serialization") version "1.9.25"
 }
 
 dependencies {
-    testImplementation(kotlin("test"))
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
+    implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
 }
-
-tasks.test {
-    useJUnitPlatform()
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+    kotlinOptions {
+        jvmTarget = "21"
+    }
+}
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)  // JVM 21로 설정
+    }
 }

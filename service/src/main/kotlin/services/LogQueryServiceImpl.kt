@@ -1,7 +1,7 @@
-package com.inspark.testproject.services
+package com.inspark.services
 
-import com.inspark.testproject.domain.RawGeoTiff
-import com.inspark.testproject.repositories.RawGeoTiffRepository
+import com.inspark.domain.RawGeoTiff
+import com.inspark.repositories.RawGeoTiffRepository
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 

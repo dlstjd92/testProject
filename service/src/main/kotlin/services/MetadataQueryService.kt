@@ -1,6 +1,6 @@
-package com.inspark.testproject.services
+package com.inspark.services
 
-import com.inspark.testproject.domain.GeoTiffMetadata
+import com.inspark.domain.GeoTiffMetadata
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 
