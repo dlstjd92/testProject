@@ -16,4 +16,7 @@ class MetadataQueryServiceImpl(
 
     override fun findByFilename(filename: String): Flux<GeoTiffMetadata> =
         repository.findByFilenameContainingIgnoreCase(filename)
+
+    override fun findByFilters(filters: Map<String, String>): Flux<GeoTiffMetadata> =
+        repository.findByFilters(filters)
 }

@@ -13,7 +13,7 @@ class DbInitializer(private val client: DatabaseClient) {
             """
             CREATE TABLE IF NOT EXISTS geotiff_metadata (
                 id IDENTITY PRIMARY KEY,
-                filename VARCHAR(255),
+                filename VARCHAR(255) UNIQUE,
                 width INT,
                 height INT,
                 coordinate_system VARCHAR(255),

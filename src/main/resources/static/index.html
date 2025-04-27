@@ -10,8 +10,8 @@
     <div id="list-section" style="flex: 1;">
         <div id="title-section" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1em;">
           <h1 style="margin: 0;">TIFF 목록</h1>
-          <button id="loadOut" style="display: none;">결과 버킷 목록 불러오기</button>
         </div>
+        <button id="loadOut" style="display: none; margin-bottom: 1em;">결과 버킷 목록 불러오기</button>
         <div id="load-controls" style="display: flex; gap: 0.5em; align-items: center; margin-bottom: 1em;">
             <input type="text" id="bucket" placeholder="조회할 버킷 이름을 입력하세요" />
             <button id="load">불러오기</button>
@@ -29,6 +29,22 @@
     <div id="result-section" style="display: none; flex: 1; padding: 1em; min-height: 200px; overflow-y: auto; max-height: 90vh;">
         <h2>결과 버킷 목록</h2>
         <div id="outListContainer"></div>
+    </div>
+    <div id="metadata-section" style="flex: 1; padding: 1em; max-height: 90vh; overflow-y: auto;">
+      <h2>메타데이터</h2>
+      <div id="metadata-controls" style="display: flex; gap: 0.5em; align-items: center; margin-bottom: 1em;">
+        <button id="loadMetadata">모든 메타데이터 조회</button>
+        <select id="filter-column" style="margin-left: 0.5em;">
+          <option value="filename">filename</option>
+          <option value="width">width</option>
+          <option value="height">height</option>
+          <option value="bandCount">bandCount</option>
+          <option value="uploadCount">uploadCount</option>
+        </select>
+        <input type="text" id="filter-value" placeholder="값 입력" style="margin-left: 0.5em;" />
+        <button id="applyFilter" style="margin-left: 0.5em;">필터 적용</button>
+      </div>
+      <div id="metadataContainer"></div>
     </div>
 </div>
 <script>
@@ -97,7 +113,15 @@ document.getElementById('execute').addEventListener('click', async () => {
         document.getElementById('statusMessage').textContent = '실패';
     }
 });
-document.getElementById('loadOut').addEventListener('click', async () => {
+const loadOutBtn = document.getElementById('loadOut');
+loadOutBtn.addEventListener('click', async () => {
+    const resSection = document.getElementById('result-section');
+    const isVisible = resSection.style.display === 'block';
+    if (isVisible) {
+        resSection.style.display = 'none';
+        loadOutBtn.textContent = '결과 버킷 목록 불러오기';
+        return;
+    }
     const bucketOut = document.getElementById('bucketOut').value.trim();
     const rawTarget = document.getElementById('targetKey').value.trim();
     const targetKey = rawTarget.endsWith('/') ? rawTarget : rawTarget + '/';
@@ -105,15 +129,11 @@ document.getElementById('loadOut').addEventListener('click', async () => {
         alert('버킷 아웃을 입력하세요');
         return;
     }
-    document.getElementById('result-section').style.display = 'block';
     try {
         const res = await fetch('/S3/getList', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                bucket: bucketOut,
-                prefix: targetKey
-            })
+            body: JSON.stringify({ bucket: bucketOut, prefix: targetKey })
         });
         if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
         const list = await res.json();
@@ -122,6 +142,8 @@ document.getElementById('loadOut').addEventListener('click', async () => {
             const name = key.startsWith(targetKey) ? key.slice(targetKey.length) : key;
             return `<div>${name}</div>`;
         }).join('');
+        resSection.style.display = 'block';
+        loadOutBtn.textContent = '결과 숨기기';
     } catch (err) {
         document.getElementById('outListContainer').textContent = `에러 발생: ${err.message}`;
     }
@@ -131,6 +153,110 @@ document.getElementById('toggleAll').addEventListener('click', () => {
     if (items.length === 0) return;
     const allChecked = Array.from(items).every(cb => cb.checked);
     items.forEach(cb => cb.checked = !allChecked);
+});
+</script>
+<script>
+// 메타데이터 조회 기능
+document.getElementById('loadMetadata').addEventListener('click', async () => {
+  try {
+    const res = await fetch('/metadata');
+    if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
+    const list = await res.json();
+    const container = document.getElementById('metadataContainer');
+    if (list.length > 0) {
+      let html = '<table border="1" cellpadding="5"><thead><tr>'
+        + '<th>ID</th><th>filename</th><th>width</th><th>height</th><th>bandCount</th><th>uploadCount</th>'
+        + '<th>coordinateSystem</th><th>originX</th><th>originY</th>'
+        + '<th>pixelSizeX</th><th>pixelSizeY</th>'
+        + '<th>colorInterpretation</th><th>compression</th>'
+        + '<th>lastUploadTime</th><th>createdAt</th>'
+        + '</tr></thead><tbody>';
+      list.forEach(item => {
+        html += `<tr>
+          <td>${item.id}</td>
+          <td>${item.filename}</td>
+          <td>${item.width}</td>
+          <td>${item.height}</td>
+          <td>${item.bandCount}</td>
+          <td>${item.uploadCount}</td>
+          <td>${item.coordinateSystem}</td>
+          <td>${item.originX}</td>
+          <td>${item.originY}</td>
+          <td>${item.pixelSizeX}</td>
+          <td>${item.pixelSizeY}</td>
+          <td>${item.colorInterpretation}</td>
+          <td>${item.compression}</td>
+          <td>${item.lastUploadTime}</td>
+          <td>${item.createdAt}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    } else {
+      container.innerHTML = '<p>메타데이터가 없습니다.</p>';
+    }
+  } catch (err) {
+    document.getElementById('metadataContainer').textContent = `에러 발생: ${err.message}`;
+  }
+});
+
+document.getElementById('applyFilter').addEventListener('click', async () => {
+  const field = document.getElementById('filter-column').value;
+  const value = document.getElementById('filter-value').value.trim();
+  // Insert debugging logs and params right after extracting field and value
+  console.log('applyFilter clicked:', field, value);
+  const params = new URLSearchParams();
+  params.append(field, value);
+  console.log('filter params:', params.toString());
+  if (!value) {
+    alert('필터 값을 입력하세요');
+    return;
+  }
+  // Log the fetch URL before the fetch
+  console.log('Fetching metadata with filter URL:', `/metadata/filter?${params.toString()}`);
+  try {
+    const res = await fetch(`/metadata/filter?${params.toString()}`);
+    // Log response status after fetch, before checking res.ok
+    console.log('Response status:', res.status);
+    if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
+    const list = await res.json();
+    // reuse rendering logic from searchMetadata
+    const container = document.getElementById('metadataContainer');
+    if (list.length > 0) {
+      let html = '<table border="1" cellpadding="5"><thead><tr>'
+        + '<th>ID</th><th>filename</th><th>width</th><th>height</th><th>bandCount</th><th>uploadCount</th>'
+        + '<th>coordinateSystem</th><th>originX</th><th>originY</th>'
+        + '<th>pixelSizeX</th><th>pixelSizeY</th>'
+        + '<th>colorInterpretation</th><th>compression</th>'
+        + '<th>lastUploadTime</th><th>createdAt</th>'
+        + '</tr></thead><tbody>';
+      list.forEach(item => {
+        html += `<tr>
+          <td>${item.id}</td>
+          <td>${item.filename}</td>
+          <td>${item.width}</td>
+          <td>${item.height}</td>
+          <td>${item.bandCount}</td>
+          <td>${item.uploadCount}</td>
+          <td>${item.coordinateSystem}</td>
+          <td>${item.originX}</td>
+          <td>${item.originY}</td>
+          <td>${item.pixelSizeX}</td>
+          <td>${item.pixelSizeY}</td>
+          <td>${item.colorInterpretation}</td>
+          <td>${item.compression}</td>
+          <td>${item.lastUploadTime}</td>
+          <td>${item.createdAt}</td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    } else {
+      container.innerHTML = '<p>메타데이터가 없습니다.</p>';
+    }
+  } catch (err) {
+    document.getElementById('metadataContainer').textContent = `에러 발생: ${err.message}`;
+  }
 });
 </script>
 </body>

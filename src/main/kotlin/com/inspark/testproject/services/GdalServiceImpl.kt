@@ -1,9 +1,12 @@
 package com.inspark.testproject.services
 
+import org.springframework.transaction.reactive.TransactionalOperator
+
 import reactor.core.publisher.Mono
 import com.inspark.testproject.repositories.GeoTiffMetadataRepository
 import com.inspark.testproject.repositories.RawGeoTiffRepository
 import reactor.core.scheduler.Schedulers
+import reactor.core.scheduler.Scheduler
 
 import java.time.LocalDateTime
 
@@ -22,7 +25,8 @@ import java.security.MessageDigest
 class GdalServiceImpl(
     private val s3Client: S3AsyncClient,
     private val metadataRepository: GeoTiffMetadataRepository,
-    private val rawGeoTiffRepository: RawGeoTiffRepository
+    private val rawGeoTiffRepository: RawGeoTiffRepository,
+    private val transactionalOperator: TransactionalOperator
 ) : GdalService {
     // Initialize crtClient, listener, and transferManager once for reuse
     private val crtClient = S3AsyncClient.crtBuilder()
@@ -39,8 +43,8 @@ class GdalServiceImpl(
 
         .build()
 
-    private val threadCount = 15
-    private val scheduler = Schedulers.newParallel("gdal-parallel", threadCount)
+    // Unified I/O scheduler
+    private val ioScheduler = Schedulers.boundedElastic()
 
      private fun downloadFileFromS3(bucket: String, key: String, localPath: Path): Mono<Void> {
          println("[📥] S3 파일 다운로드 시작: bucket=$bucket, key=$key")
@@ -54,7 +58,9 @@ class GdalServiceImpl(
          return Mono.fromFuture {
              transferManager.downloadFile(downloadRequest)
                  .completionFuture()
-         }.then()
+         }
+         .subscribeOn(ioScheduler)
+         .then()
      }
 //    private fun downloadFileFromS3(bucket: String, key: String, localPath: Path): Mono<Void> {
 //        println("[📥] S3 파일 다운로드 (AWS CLI) 시작: bucket=$bucket, key=$key")
@@ -79,28 +85,30 @@ class GdalServiceImpl(
 //        .then()
 //    }
 
-    fun convertToCOG(inputPath: Path, outputPath: Path): Boolean {
-        val fileSizeBytes = Files.size(inputPath)
-        val isBigTiffNeeded = fileSizeBytes > 4L * 1024 * 1024 * 1024 // 4GB
+    fun convertToCOG(inputPath: Path, outputPath: Path): Mono<Boolean> =
+        Mono.fromCallable {
+            val fileSizeBytes = Files.size(inputPath)
+            val isBigTiffNeeded = fileSizeBytes > 4L * 1024 * 1024 * 1024 // 4GB
 
-        val command = mutableListOf(
-            "gdal_translate", "-of", "COG",
-            "-co", "COMPRESS=ZSTD",
-            "-co", "NUM_THREADS=ALL_CPUS"
-        )
-        if (isBigTiffNeeded) {
-            command.addAll(listOf("-co", "BIGTIFF=YES"))
+            val command = mutableListOf(
+                "gdal_translate", "-of", "COG",
+                "-co", "COMPRESS=ZSTD",
+                "-co", "NUM_THREADS=ALL_CPUS"
+            )
+            if (isBigTiffNeeded) {
+                command.addAll(listOf("-co", "BIGTIFF=YES"))
+            }
+            command.add(inputPath.toString())
+            command.add(outputPath.toString())
+
+            val processBuilder = ProcessBuilder(command)
+                .inheritIO()
+            // 할당할 GDAL 캐시 크기(1 GB)
+            processBuilder.environment()["GDAL_CACHEMAX"] = "1073741824"
+            val process = processBuilder.start()
+            process.waitFor() == 0
         }
-        command.add(inputPath.toString())
-        command.add(outputPath.toString())
-
-        val processBuilder = ProcessBuilder(command)
-            .inheritIO()
-        // 할당할 GDAL 캐시 크기(1 GB)
-        processBuilder.environment()["GDAL_CACHEMAX"] = "1073741824"
-        val process = processBuilder.start()
-        return process.waitFor() == 0
-    }
+        .subscribeOn(ioScheduler)
 
     fun uploadFileToS3(bucket: String, key: String, localPath: Path): Mono<Void> {
         println("[📤] S3 파일 업로드 시작: bucket=$bucket, key=$key")
@@ -122,18 +130,24 @@ class GdalServiceImpl(
                 .redirectErrorStream(true)
                 .start()
             val output = process.inputStream.bufferedReader().readText()
+//            println("[📑] GDAL 메타데이터 출력:\n$output")
             process.waitFor()
 
             // Helper regexes
             val sizeRegex = Regex("""Size is (\d+), (\d+)""")
             val originRegex = Regex("""Origin = \(([-\d\.]+),([-\d\.]+)\)""")
             val pixelSizeRegex = Regex("""Pixel Size = \(([-\d\.]+),([-\d\.]+)\)""")
-            val coordRegex = Regex("""Coordinate System is:\s*(.+?)\n""", RegexOption.DOT_MATCHES_ALL)
 
             val sizeMatch = sizeRegex.find(output)
             val originMatch = originRegex.find(output)
             val pixelMatch = pixelSizeRegex.find(output)
-            val coordMatch = coordRegex.find(output)
+
+            // Extract EPSG code only (fallback to "Unknown" if not found)
+            val epsgRegex = Regex("""ID\["EPSG",\s*(\d+)\]""")
+            val coordSystemClean = epsgRegex.find(output)
+                ?.groups?.get(1)?.value
+                ?.let { "EPSG:$it" }
+                ?: "Unknown"
 
             // Extract compression type
             val compression = extractFieldFromGdalInfo(output, "COMPRESSION")
@@ -153,58 +167,58 @@ class GdalServiceImpl(
                 originY = originMatch?.groups?.get(2)?.value?.toDouble() ?: 0.0,
                 pixelSizeX = pixelMatch?.groups?.get(1)?.value?.toDouble() ?: 0.0,
                 pixelSizeY = pixelMatch?.groups?.get(2)?.value?.toDouble() ?: 0.0,
-                coordinateSystem = coordMatch?.groups?.get(1)?.value?.trim() ?: "Unknown",
+                coordinateSystem = coordSystemClean,
                 bandCount = bandCount,
                 colorInterpretation = colorInterpretation,
                 compression = compression
             )
         }
-        .subscribeOn(Schedulers.boundedElastic())
+        .publishOn(ioScheduler)
         .flatMap { metadata ->
-            val baseName = s3Key.substringAfterLast("/")
-            val filenamePrefix = baseName.substringBeforeLast(".")
-            // Check for existing metadata by filename (deduplication)
-            metadataRepository.findByFilenameStartingWith(filenamePrefix)
-                .collectList()
-                .flatMap { existingList ->
-                    val now = java.time.Instant.now()
-                    // Find exact match (deduplication by filename)
-                    val existing = existingList.find { it.filename == metadata.filename }
-                    // Determine the new upload count based on existing metadata
-                    val newUploadCount = if (existing != null) existing.uploadCount + 1 else 1
-                    val nameOnly = baseName.substringBeforeLast(".")
-                    val finalS3Key = "${nameOnly}_to_cog_${newUploadCount}"
-                    val updatedMetadata = if (existing != null) {
-                        existing.copy(
-                            uploadCount = newUploadCount,
-                            lastUploadTime = LocalDateTime.ofInstant(now, java.time.ZoneId.systemDefault())
-                        )
-                    } else {
-                        metadata.copy(
-                            uploadCount = newUploadCount,
-                            lastUploadTime = LocalDateTime.ofInstant(now, java.time.ZoneId.systemDefault())
-                        )
+            transactionalOperator.execute<GeoTiffMetadata> { tx ->
+                val baseName = s3Key.substringAfterLast("/")
+                val filenamePrefix = baseName.substringBeforeLast(".")
+                val fullFilename = "$filenamePrefix.tiff"
+
+                metadataRepository.findByFilenameContainingIgnoreCase(fullFilename)
+                    .flatMap { existingMeta ->
+                        // existing: increment count
+                        metadataRepository.incrementUploadCountByFilename(fullFilename)
+                            .flatMap { count ->
+                                val now = LocalDateTime.now()
+                                val updated = existingMeta.copy(
+                                    uploadCount = count,
+                                    lastUploadTime = now
+                                )
+                                metadataRepository.save(updated).map { saved -> Pair(saved, now) }
+                            }
                     }
-                    // Save or update metadata (deduplicated)
-                    metadataRepository.save(updatedMetadata)
-                        .flatMap { savedMeta ->
-                            // Compute checksum
-                            val checksum = computeFileChecksum(file)
-                            // Insert RawGeoTiff row for logging
-                            val rawGeoTiff = RawGeoTiff(
-                                id = null,
-                                originalFilename = finalS3Key,
-                                checksum = checksum,
-                                metadataId = savedMeta.id,
-                                uploadTime = LocalDateTime.ofInstant(now, java.time.ZoneId.systemDefault()),
-                                fileSize = Files.size(file)
+                    .switchIfEmpty(
+                        // new metadata: use count=1
+                        Mono.defer {
+                            val now = LocalDateTime.now()
+                            val newMetaObj = metadata.copy(
+                                filename = fullFilename,
+                                uploadCount = 1,
+                                lastUploadTime = now
                             )
-                            rawGeoTiffRepository.save(rawGeoTiff)
-                                .thenReturn(savedMeta)
+                            metadataRepository.save(newMetaObj).map { saved -> Pair(saved, now) }
                         }
-                        .doOnSuccess { println("[✔] 메타데이터 저장 완료: ${updatedMetadata.filename}, 저장 S3 Key: $finalS3Key") }
-                        .doOnError { println("[!] 메타데이터 저장 실패: ${it.message}") }
-                }
+                    )
+                    .flatMap { (savedMeta, timestamp) ->
+                        val checksum = computeFileChecksum(file)
+                        val raw = RawGeoTiff(
+                            id = null,
+                            originalFilename = filenamePrefix,
+                            checksum = checksum,
+                            metadataId = savedMeta.id,
+                            uploadTime = timestamp,
+                            fileSize = Files.size(file)
+                        )
+                        rawGeoTiffRepository.save(raw).thenReturn(savedMeta)
+                    }
+            }
+            .single()
         }
         .doOnError { println("[!] 메타데이터 추출 실패: ${it.message}") }
     }
@@ -271,45 +285,49 @@ class GdalServiceImpl(
             .doOnSubscribe { downloadStart = System.currentTimeMillis() }
             .doOnSuccess { downloadDuration = System.currentTimeMillis() - downloadStart }
             .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
-        .then(
-            Mono.fromCallable {
-                val s = System.currentTimeMillis()
-                val success = convertToCOG(localInput, localOutput)
-                if (!success) {
-                    throw RuntimeException("COG 변환 실패")
+            .then(
+                Mono.defer {
+                    val convertStart = System.currentTimeMillis()
+                    convertToCOG(localInput, localOutput)
+                        .doOnNext { success ->
+                            if (!success) throw RuntimeException("COG 변환 실패")
+                            convertDuration = System.currentTimeMillis() - convertStart
+                        }
+                        .then()
                 }
-                convertDuration = System.currentTimeMillis() - s
-            }
-            .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
-        )
-        .then(
-            extractMetadata(localOutput, keyIn)
-                .flatMap { savedMeta ->
-                    val baseName = keyIn.substringBeforeLast(".")
-                    val seq = savedMeta.uploadCount
-                    val finalUploadKey = if (targetKey.endsWith("/")) {
-                        "$targetKey${baseName}_to_cog_${seq}.tiff"
-                    } else {
-                        targetKey
+            )
+            .then(
+                extractMetadata(localOutput, keyIn)
+
+                    .flatMap { savedMeta ->
+                        val baseName = keyIn.substringBeforeLast(".")
+                        val seq = savedMeta.uploadCount
+                        val finalUploadKey = if (targetKey.endsWith("/")) {
+                            "$targetKey${baseName}_to_cog_${seq}.tiff"
+                        } else {
+                            targetKey
+                        }
+                        uploadFileToS3(bucketOut, finalUploadKey, localOutput)
                     }
-                    uploadFileToS3(bucketOut, finalUploadKey, localOutput)
-                }
-        )
-        .doOnSuccess {
-            val totalSeconds = (System.currentTimeMillis() - startTotal) / 1000.0
-            println("[⏱] 전체 소요 시간: ${"%.2f".format(totalSeconds)}초 " +
-                    "(다운로드: ${downloadDuration/1000}s, " +
-                    "변환: ${convertDuration/1000}s, " +
-                    "업로드: ${uploadDuration/1000}s)")
-        }
-        .doOnError {
-            println("[!] 처리 중 오류 발생: ${it.message}")
-        }
-        .doFinally {
-            localInput.toFile().delete()
-            localOutput.toFile().delete()
-        }
-        .then()
+            )
+            .doOnSuccess {
+                val totalSeconds = (System.currentTimeMillis() - startTotal) / 1000.0
+                println("[⏱] 전체 소요 시간: ${"%.2f".format(totalSeconds)}초 " +
+                        "(다운로드: ${downloadDuration/1000}s, " +
+                        "변환: ${convertDuration/1000}s, " +
+                        "업로드: ${uploadDuration/1000}s)")
+            }
+            .doOnError {
+                println("[!] 처리 중 오류 발생: ${it.message}")
+            }
+            .doFinally {
+                localInput.toFile().delete()
+                localOutput.toFile().delete()
+            }
+            .onErrorMap { e ->
+                RuntimeException("파일 처리 중 오류가 발생했습니다: ${e.message}", e)
+            }
+            .then()
     }
 
     private fun determineFinalKey(keyIn: String, targetKey: String): String {
