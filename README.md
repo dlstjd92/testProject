@@ -60,19 +60,19 @@ http://localhost:8080
    - 변환 실행
    - 메타데이터 조회버튼으로 인메모리 DB에 저장된 파일 메타데이터 확인
    - 셀렉트 박스로 필터 검색 가능
-   - 
+
 ![img_1.png](img_1.png)
 ## 주요 API 명세
 
-| API Endpoint | 메소드 | 요청 데이터 | 설명 |
-|:-------------|:------|:------------|:-------------------------------------------|
-| `/aws/credentials` | POST | `{ accessKeyId, secretAccessKey }` | AWS 인증 정보 등록 및 S3 클라이언트 초기화 |
-| `/S3/getList` | POST | `{ bucketName }` | S3 버킷 내 파일 목록 조회 |
-| `/CogConverter/convert` | POST | `{ bucketIn, key, bucketOut, targetKey }` | 단일 TIFF 파일을 변환 및 업로드 (웹 사용 아님) |
-| `/CogConverter/batch-convert` | POST | `{ bucketIn, keys, bucketOut, targetKey }` | 여러 TIFF 파일을 일괄 변환 및 업로드 |
-| `/logs` | GET | 없음 | 변환 및 업로드 기록 전체 조회 (웹 사용 아님) |
-| `/metadata` | GET | 없음 | 전체 GeoTIFF 메타데이터 조회 |
-| `/metadata/filter` | GET | 쿼리 파라미터 (`filename`, `bucketName` 등) | 조건 기반 메타데이터 조회 |
+| API Endpoint | 메소드 | 요청 데이터 | 설명                             |
+|:-------------|:------|:------------|:-------------------------------|
+| `/aws/credentials` | POST | `{ accessKeyId, secretAccessKey }` | AWS 인증 정보 등록 및 S3 클라이언트 초기화    |
+| `/S3/getList` | POST | `{ bucketName }` | S3 버킷 내 파일 목록 조회               |
+| `/CogConverter/convert` | POST | `{ bucketIn, key, bucketOut, targetKey }` | 단일 TIFF 파일을 변환 및 업로드 (웹 사용 안함) |
+| `/CogConverter/batch-convert` | POST | `{ bucketIn, keys, bucketOut, targetKey }` | 여러 TIFF 파일을 일괄 변환 및 업로드        |
+| `/logs` | GET | 없음 | 변환 및 업로드 기록 전체 조회 (웹 사용 안함)    |
+| `/metadata` | GET | 없음 | 전체 GeoTIFF 메타데이터 조회            |
+| `/metadata/filter` | GET | 쿼리 파라미터 (`filename`, `bucketName` 등) | 조건 기반 메타데이터 조회                 |
 
 - **주의사항**: S3 작업 전에 반드시 AWS 인증정보를 입력해야 합니다.
 - 입력된 인증정보는 메모리 상에만 저장되며 서버에 따로 저장되지 않습니다.
