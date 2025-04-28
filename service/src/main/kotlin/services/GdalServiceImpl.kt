@@ -22,24 +22,17 @@ import java.security.MessageDigest
 
 @Service
 class GdalServiceImpl(
+    private val s3ClientConfig: com.inspark.config.S3ClientConfig,
     private val metadataRepository: GeoTiffMetadataRepository,
     private val rawGeoTiffRepository: RawGeoTiffRepository,
     private val transactionalOperator: TransactionalOperator
 ) : GdalService {
 
-    // 다운로드 옵션.
-    private val crtClient = S3AsyncClient.crtBuilder()
-        .region(software.amazon.awssdk.regions.Region.AP_NORTHEAST_2)
-        .minimumPartSizeInBytes(8 * 1024 * 1024)
-        .maxConcurrency(64)
-        .targetThroughputInGbps(20.0)
-        .build()
+
+    private val transferManager: S3TransferManager
+        get() = s3ClientConfig.getTransferManager()
 
     private val listener = LoggingTransferListener.create()
-
-    private val transferManager = S3TransferManager.builder()
-        .s3Client(crtClient)
-        .build()
 
     //io 스캐쥴러
     private val ioScheduler = Schedulers.boundedElastic()

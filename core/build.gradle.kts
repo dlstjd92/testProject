@@ -10,6 +10,7 @@ dependencies {
     implementation("software.amazon.awssdk:s3:2.25.4")
     implementation("io.r2dbc:r2dbc-h2")
     runtimeOnly("com.h2database:h2")
+    implementation("software.amazon.awssdk:s3-transfer-manager:2.31.29")
 }
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     kotlinOptions {

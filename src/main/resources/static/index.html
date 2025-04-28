@@ -106,7 +106,7 @@ document.getElementById('execute').addEventListener('click', async () => {
         return;
     }
     try {
-        const res = await fetch('http://localhost:8080/CogConverter/batch-convert', {
+        const res = await fetch('/CogConverter/batch-convert', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
