@@ -23,6 +23,6 @@ class AwsCredentialController @Autowired constructor(
 
         s3ClientConfig.setCredentials(request.accessKeyId, request.secretAccessKey)
         s3ClientConfig.initializeS3Client()
-        return "AWS 인증정보가 성공적으로 등록되었고, S3 클라이언트가 초기화되었습니다."
+        return "등록완료."
     }
 }

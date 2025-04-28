@@ -19,14 +19,14 @@ open class CustomGeoTiffMetadataRepositoryImpl(
         if (filters.isNotEmpty()) {
             val whereBuilder = StringBuilder()
             filters.entries.forEachIndexed { index, (field, value) ->
-                // convert camelCase field to snake_case column
+                // 카멜케이스 스네이크로 바꾸기
                 val column = field.replace(Regex("([a-z])([A-Z])"), "$1_$2").lowercase()
                 if (index > 0) {
                     whereBuilder.append(" AND ")
                 } else {
                     whereBuilder.append(" WHERE ")
                 }
-                // use LIKE only for string fields
+                // 스트링타입 필드는 Like로 포함하는거 찾기
                 when (field) {
                     "filename", "coordinateSystem", "colorInterpretation", "compression" ->
                         whereBuilder.append("$column LIKE :$field")
@@ -45,7 +45,7 @@ open class CustomGeoTiffMetadataRepositoryImpl(
                 "filename", "coordinateSystem", "colorInterpretation", "compression" ->
                     spec = spec.bind(field, "%$value%")
                 else -> {
-                    // numeric fields: convert to Int
+
                     val intValue = value.toIntOrNull() ?: 0
                     spec = spec.bind(field, intValue)
                 }
@@ -75,10 +75,6 @@ open class CustomGeoTiffMetadataRepositoryImpl(
         }.all()
     }
 
-    /**
-     * Atomically increments the upload_count for a given filename.
-     * Uses a single transaction (update + select) for safety.
-     */
     override fun incrementUploadCountByFilename(filename: String): Mono<Int> {
         return db.inConnection { connection ->
             Mono.from(
@@ -113,20 +109,4 @@ open class CustomGeoTiffMetadataRepositoryImpl(
     }
 
 
-    override fun getUploadCount(filename: String): Mono<Int> {
-        return db.sql(
-            """
-            SELECT upload_count FROM geotiff_metadata
-            WHERE filename = ?
-            """
-        )
-        .bind(0, filename)
-        .map { row, _ -> row.get("upload_count", java.lang.Integer::class.java)!!.toInt() }
-        .one()
-    }
-
-//    override fun insertNewMetadata(filename: String): Mono<Void> {
-//        // Deprecated. No operation needed.
-//        return Mono.empty()
-//    }
 }

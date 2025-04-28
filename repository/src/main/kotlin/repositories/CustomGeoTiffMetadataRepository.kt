@@ -9,6 +9,5 @@ import reactor.core.publisher.Mono
 interface CustomGeoTiffMetadataRepository {
     fun findByFilters(filters: Map<String, String>): Flux<GeoTiffMetadata>
     fun incrementUploadCountByFilename(filename: String): Mono<Int>
-    fun getUploadCount(filename: String): Mono<Int>
 
 }

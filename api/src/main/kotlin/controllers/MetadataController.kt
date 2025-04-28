@@ -15,14 +15,6 @@ class MetadataController(
     fun getAll(): Flux<GeoTiffMetadata> =
         metadataQueryService.findAll()
 
-//    @GetMapping("/{id}")
-//    fun getById(@PathVariable id: Long): Mono<GeoTiffMetadata> =
-//        metadataQueryService.findById(id)
-//
-//    @GetMapping("/search")
-//    fun searchByFilename(@RequestParam filename: String): Flux<GeoTiffMetadata> =
-//        metadataQueryService.findByFilename(filename)
-
     @GetMapping("/filter")
     fun filterByParams(@RequestParam allParams: Map<String, String>): Flux<GeoTiffMetadata> =
         metadataQueryService.findByFilters(allParams)

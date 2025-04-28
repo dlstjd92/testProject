@@ -1,12 +1,10 @@
 plugins {
     kotlin("jvm")
     kotlin("plugin.spring")
-    kotlin("plugin.serialization") version "1.9.25"
     id("org.springframework.boot")
 }
 repositories {
     mavenCentral()  // 여기 추가
-//    maven("https://sdk.amazonaws.com/maven")  // AWS Maven Repository 추가
 }
 
 dependencies {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TIFF 목록</title>
+    <title>TIFF 변환</title>
 </head>
 <body>
 <div id="wrapper" style="display: flex; gap: 2em; align-items: flex-start;">
@@ -53,8 +53,7 @@
     </div>
 </div>
 <script>
-// restore all original event listeners and script code exactly as before the recent changes
-// (fetch /S3/getList on load, show list, then fetch batch-convert on execute, toggleAll, loadOut fetch & render)
+
 document.getElementById('load').addEventListener('click', async () => {
     const bucketName = document.getElementById('bucket').value.trim();
     if (!bucketName) {
@@ -71,7 +70,7 @@ document.getElementById('load').addEventListener('click', async () => {
         });
         if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
         const list = await res.json();
-        // Hide result section when loading list
+
         document.getElementById('result-section').style.display = 'none';
         // 렌더링
         const container = document.getElementById('listContainer');
@@ -80,7 +79,7 @@ document.getElementById('load').addEventListener('click', async () => {
         ).join('<br>');
         document.getElementById('actions').style.display = 'block';
     } catch (err) {
-        // document.getElementById('out').textContent = `에러 발생: ${err.message}`;
+
     }
 });
 document.getElementById('execute').addEventListener('click', async () => {
@@ -99,7 +98,6 @@ document.getElementById('execute').addEventListener('click', async () => {
         return;
     }
     const bucketOut = document.getElementById('bucketOut').value.trim();
-    // Normalize targetKey to always end with '/'
     const rawTarget = document.getElementById('targetKey').value.trim();
     const targetKey = rawTarget.endsWith('/') ? rawTarget : rawTarget + '/';
     document.getElementById('statusMessage').textContent = '진행 중...';
@@ -236,7 +234,6 @@ document.getElementById('loadMetadata').addEventListener('click', async () => {
 document.getElementById('applyFilter').addEventListener('click', async () => {
   const field = document.getElementById('filter-column').value;
   const value = document.getElementById('filter-value').value.trim();
-  // Insert debugging logs and params right after extracting field and value
   console.log('applyFilter clicked:', field, value);
   const params = new URLSearchParams();
   params.append(field, value);
@@ -245,15 +242,12 @@ document.getElementById('applyFilter').addEventListener('click', async () => {
     alert('필터 값을 입력하세요');
     return;
   }
-  // Log the fetch URL before the fetch
   console.log('Fetching metadata with filter URL:', `/metadata/filter?${params.toString()}`);
   try {
     const res = await fetch(`/metadata/filter?${params.toString()}`);
-    // Log response status after fetch, before checking res.ok
     console.log('Response status:', res.status);
     if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
     const list = await res.json();
-    // reuse rendering logic from searchMetadata
     const container = document.getElementById('metadataContainer');
     if (list.length > 0) {
       let html = '<table border="1" cellpadding="5"><thead><tr>'

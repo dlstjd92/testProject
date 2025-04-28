@@ -14,14 +14,13 @@ class S3Controller(
     private val s3ListService: S3ListService,
 ) {
 
-    @GetMapping("/ping")
-    fun ping(): String {
-        return "S3Controller is working!"
-    }
+//    @GetMapping("/ping")
+//    fun ping(): String {
+//        return "S3Controller is working!"
+//    }
 
     @PostMapping("/getList")
     fun listBucketFiles(@RequestBody request: ListRequest): List<String> {
-        // if prefix is not provided, use empty string
         return s3ListService.listObjectsInBucket(
             request.bucket,
             request.prefix ?: ""

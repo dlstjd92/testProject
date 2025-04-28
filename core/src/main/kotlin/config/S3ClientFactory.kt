@@ -1,8 +1,8 @@
 package com.inspark.config
 
-import org.springframework.context.annotation.Bean
+
 import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Lazy
+
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
 import software.amazon.awssdk.regions.Region

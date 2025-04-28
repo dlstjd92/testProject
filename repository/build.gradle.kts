@@ -1,6 +1,5 @@
 plugins {
     kotlin("jvm")
-    kotlin("plugin.serialization") version "1.9.25" // ✅ 이 줄 추가!
 }
 
 dependencies {

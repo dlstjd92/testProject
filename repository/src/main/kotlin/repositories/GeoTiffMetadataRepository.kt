@@ -8,5 +8,5 @@ import reactor.core.publisher.Flux
 @Repository
 interface GeoTiffMetadataRepository : R2dbcRepository<GeoTiffMetadata, Long>, CustomGeoTiffMetadataRepository {
     fun findByFilenameContainingIgnoreCase(filename: String): Flux<GeoTiffMetadata>
-    fun findByFilenameStartingWith(prefix: String): Flux<GeoTiffMetadata>
+//    fun findByFilenameStartingWith(prefix: String): Flux<GeoTiffMetadata>
 }

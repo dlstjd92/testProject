@@ -2,9 +2,10 @@ package com.inspark.controllers
 
 import com.inspark.services.GdalService
 import com.inspark.DTO.ConvertRequest
+import com.inspark.DTO.BatchConvertRequest
+
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import reactor.core.publisher.Mono
@@ -14,13 +15,13 @@ import reactor.core.publisher.Mono
 class GdalConverterController(
     private val gdalService: GdalService
 ) {
-
+    // 어차피 전부 못씀
     private val concurrency = 15
-
-    @GetMapping("/ping")
-    fun ping(): String {
-        return "GdalConverterController is working!"
-    }
+//
+//    @GetMapping("/ping")
+//    fun ping(): String {
+//        return "GdalConverterController is working!"
+//    }
 
     @PostMapping("/convert")
     fun convertFile(@RequestBody request: ConvertRequest): Mono<Void> {
@@ -31,13 +32,6 @@ class GdalConverterController(
             targetKey = request.targetKey
         )
     }
-
-    data class BatchConvertRequest(
-        val bucketIn: String,
-        val keys: List<String>,
-        val bucketOut: String,
-        val targetKey: String
-    )
 
     @PostMapping("/batch-convert")
     fun convertMultipleFiles(@RequestBody request: BatchConvertRequest): Mono<Void> {

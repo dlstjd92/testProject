@@ -3,7 +3,6 @@ plugins {
     id("io.spring.dependency-management")
     kotlin("jvm")
     kotlin("plugin.spring")
-    kotlin("plugin.serialization") version "1.9.25"
 }
 
 dependencies {
