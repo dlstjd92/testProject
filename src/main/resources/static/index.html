@@ -8,8 +8,13 @@
 <body>
 <div id="wrapper" style="display: flex; gap: 2em; align-items: flex-start;">
     <div id="list-section" style="flex: 1;">
-        <div id="title-section" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1em;">
-          <h1 style="margin: 0;">TIFF 목록</h1>
+        <div id="title-section" style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 1em;">
+          <h1 style="margin: 0 0 0.5em 0;">TIFF 목록</h1>
+          <div id="aws-credentials-input" style="display: flex; gap: 0.5em; align-items: center;">
+            <input type="text" id="accessKeyId" placeholder="Access Key ID" style="padding: 0.5em;" />
+            <input type="text" id="secretAccessKey" placeholder="Secret Access Key" style="padding: 0.5em;" />
+            <button id="setCredentialsButton" style="padding: 0.5em;">AWS 키 등록</button>
+          </div>
         </div>
         <button id="loadOut" style="display: none; margin-bottom: 1em;">결과 버킷 목록 불러오기</button>
         <div id="load-controls" style="display: flex; gap: 0.5em; align-items: center; margin-bottom: 1em;">
@@ -79,6 +84,14 @@ document.getElementById('load').addEventListener('click', async () => {
     }
 });
 document.getElementById('execute').addEventListener('click', async () => {
+    const accessKeyId = document.getElementById('accessKeyId').value.trim();
+    const secretAccessKey = document.getElementById('secretAccessKey').value.trim();
+    if (!accessKeyId || !secretAccessKey) {
+        alert('AWS Access Key ID와 Secret Access Key를 먼저 등록해주세요.');
+        document.getElementById('accessKeyId').focus();
+        return;
+    }
+
     const checked = Array.from(document.querySelectorAll('.item-checkbox:checked'))
         .map(cb => cb.value);
     if (checked.length === 0) {
@@ -156,6 +169,26 @@ document.getElementById('toggleAll').addEventListener('click', () => {
 });
 </script>
 <script>
+document.getElementById('setCredentialsButton').addEventListener('click', async () => {
+    const accessKeyId = document.getElementById('accessKeyId').value.trim();
+    const secretAccessKey = document.getElementById('secretAccessKey').value.trim();
+    if (!accessKeyId || !secretAccessKey) {
+        alert('Access Key ID와 Secret Access Key를 모두 입력하세요.');
+        return;
+    }
+    try {
+        const res = await fetch('/aws/credentials', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ accessKeyId, secretAccessKey })
+        });
+        if (!res.ok) throw new Error(`서버 오류: ${res.status}`);
+        const message = await res.text();
+        alert(message);
+    } catch (err) {
+        alert(`에러 발생: ${err.message}`);
+    }
+});
 // 메타데이터 조회 기능
 document.getElementById('loadMetadata').addEventListener('click', async () => {
   try {

@@ -1,36 +1,47 @@
 package com.inspark.config
-import kotlinx.serialization.*
-import kotlinx.serialization.json.*
+
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Lazy
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider
 import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3AsyncClient
-import java.io.File
 
 @Configuration
 open class S3ClientConfig {
-    private val CONFIG_PATH = "config.json"
 
-    @Serializable
-    data class AwsConfig(
-        val access_key_id: String,
-        val secret_access_key: String,
-        val region: String = "ap-northeast-2"
-    )
+    private lateinit var accessKeyId: String
+    private lateinit var secretAccessKey: String
 
-    @Bean
-    open fun s3AsyncClient(): S3AsyncClient {
-        val text = File(CONFIG_PATH).readText()
-        val config = Json.decodeFromString<AwsConfig>(text)
+    fun setCredentials(accessKeyId: String, secretAccessKey: String) {
+        this.accessKeyId = accessKeyId
+        this.secretAccessKey = secretAccessKey
+    }
 
-        return S3AsyncClient.builder()
-            .region(Region.of(config.region))
+    private var s3Client: S3AsyncClient? = null
+
+    fun createS3Client() {
+        if (!::accessKeyId.isInitialized || !::secretAccessKey.isInitialized ||
+            accessKeyId.isBlank() || secretAccessKey.isBlank()
+        ) {
+            throw IllegalStateException("AWS Access Key ID와 Secret Access Key가 설정되지 않았습니다.")
+        }
+        s3Client = S3AsyncClient.builder()
+            .region(Region.AP_NORTHEAST_2)
             .credentialsProvider(
                 StaticCredentialsProvider.create(
-                    AwsBasicCredentials.create(config.access_key_id, config.secret_access_key)
+                    AwsBasicCredentials.create(accessKeyId, secretAccessKey)
                 )
-            ).build()
+            )
+            .build()
+    }
+
+    fun initializeS3Client() {
+        createS3Client()
+    }
+
+    fun getS3Client(): S3AsyncClient {
+        return s3Client ?: throw IllegalStateException("S3 클라이언트가 아직 초기화되지 않았습니다.")
     }
 }

@@ -22,11 +22,14 @@ import java.security.MessageDigest
 
 @Service
 class GdalServiceImpl(
-    private val s3Client: S3AsyncClient,
+    private val s3ClientConfig: com.inspark.config.S3ClientConfig,
     private val metadataRepository: GeoTiffMetadataRepository,
     private val rawGeoTiffRepository: RawGeoTiffRepository,
     private val transactionalOperator: TransactionalOperator
 ) : GdalService {
+
+    private val s3Client: S3AsyncClient
+        get() = s3ClientConfig.getS3Client()
     // Initialize crtClient, listener, and transferManager once for reuse
     private val crtClient = S3AsyncClient.crtBuilder()
         .region(software.amazon.awssdk.regions.Region.AP_NORTHEAST_2)
