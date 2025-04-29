@@ -119,6 +119,7 @@ http://localhost:8080
 ### 인프라 구성
 
 <img width="518" alt="image" src="https://github.com/user-attachments/assets/6a1ba7bf-e468-4ee0-bc95-b904d0af4d26" />
+
 S3에 업로드 시 자동으로 작업이 진행되는 ECS - Fargate 서버리스 아키텍쳐 구성.
 
 1. S3에 파일을 업로드 시 이벤트가 자동으로 트리거 되어 SQS Queue에 전달 됨
