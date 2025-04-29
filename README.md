@@ -50,6 +50,8 @@ cd TestProject
 ```bash
 ./gradlew clean build
 ./gradlew bootRun
+혹은 jar 파일 다운로드 후
+java -jar testProject-boot.jar
 ```
 
 3. 브라우저 접속  
