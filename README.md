@@ -116,7 +116,7 @@ http://localhost:8080
   추가로 메모리가 클수록 동시 작업 스레드수를 늘릴 수 있기 때문에 실험 결과보다 더 빠르게 작업하는것도 가능할것으로 예상됨.
 
 ---
-### 인프라 구성
+## 인프라 구성
 
 <img width="518" alt="image" src="https://github.com/user-attachments/assets/6a1ba7bf-e468-4ee0-bc95-b904d0af4d26" />
 
