@@ -4,6 +4,8 @@
 ![R2DBC](https://img.shields.io/badge/R2DBC-1.0.0-blue)
 ![H2](https://img.shields.io/badge/H2-2.3.232-orange)
 
+jar 다운로드 : https://drive.google.com/file/d/12LgPJcZOk6Q6KMyhKjJAX7CTZvPMg-lD/view?usp=drive_link
+
 ## 소개
 
 S3 버킷에서 TIFF 파일을 다운로드하여 COG 포맷으로 변환한 뒤, 목표 S3 버킷에 업로드하는 **Spring Boot Reactive** 애플리케이션. 
