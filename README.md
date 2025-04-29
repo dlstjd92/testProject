@@ -5,6 +5,7 @@
 ![H2](https://img.shields.io/badge/H2-2.3.232-orange)
 
 jar 다운로드 : https://drive.google.com/file/d/12LgPJcZOk6Q6KMyhKjJAX7CTZvPMg-lD/view?usp=drive_link
+파일이름 : testProject-boot.jar
 
 ## 소개
 
