@@ -12,7 +12,6 @@ import java.time.LocalDateTime
 import org.springframework.stereotype.Service
 import com.inspark.domain.GeoTiffMetadata
 import com.inspark.domain.RawGeoTiff
-import software.amazon.awssdk.services.s3.S3AsyncClient
 import software.amazon.awssdk.transfer.s3.S3TransferManager
 import software.amazon.awssdk.transfer.s3.model.DownloadFileRequest
 import software.amazon.awssdk.transfer.s3.progress.LoggingTransferListener
@@ -65,6 +64,7 @@ class GdalServiceImpl(
                 "gdal_translate", "-of", "COG",
                 "-co", "COMPRESS=ZSTD",
                 "-co", "NUM_THREADS=ALL_CPUS"
+
             )
             if (isBigTiffNeeded) { // 큰파일이면 옵션켜기
                 command.addAll(listOf("-co", "BIGTIFF=YES"))
@@ -86,13 +86,17 @@ class GdalServiceImpl(
         println("S3 파일 업로드 시작: bucket=$bucket, key=$key")
 
         val uploadRequest = software.amazon.awssdk.transfer.s3.model.UploadFileRequest.builder()
-            .putObjectRequest { it.bucket(bucket).key(key) }
+            .putObjectRequest { builder ->
+                builder.bucket(bucket)
+                    .key(key)
+            }
             .source(localPath)
             .addTransferListener(listener)
             .build()
 
         return Mono.fromFuture {
-            transferManager.uploadFile(uploadRequest).completionFuture()
+            transferManager.uploadFile(uploadRequest)
+                .completionFuture()
         }.then()
     }
 

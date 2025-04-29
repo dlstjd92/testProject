@@ -16,7 +16,7 @@ class GdalConverterController(
     private val gdalService: GdalService
 ) {
     // 어차피 전부 못씀
-    private val concurrency = 15
+    private val concurrency = 3
 //
 //    @GetMapping("/ping")
 //    fun ping(): String {
@@ -36,14 +36,18 @@ class GdalConverterController(
     @PostMapping("/batch-convert")
     fun convertMultipleFiles(@RequestBody request: BatchConvertRequest): Mono<Void> {
         return reactor.core.publisher.Flux.fromIterable(request.keys)
-            .flatMap({ key ->
-                gdalService.process(
-                    bucketIn = request.bucketIn,
-                    keyIn = key,
-                    bucketOut = request.bucketOut,
-                    targetKey = request.targetKey
-                )
-            }, concurrency)
+            .buffer(concurrency) // 3개씩 묶는다
+            .concatMap { batch ->
+                reactor.core.publisher.Flux.fromIterable(batch)
+                    .flatMap({ key ->
+                        gdalService.process(
+                            bucketIn = request.bucketIn,
+                            keyIn = key,
+                            bucketOut = request.bucketOut,
+                            targetKey = request.targetKey
+                        )
+                    }, concurrency) // 3개 병렬
+            }
             .then()
     }
 }

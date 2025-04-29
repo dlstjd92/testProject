@@ -38,9 +38,9 @@ open class S3ClientConfig {
         // crtBuilder 기반 생성
         val client = S3AsyncClient.crtBuilder()
             .region(Region.AP_NORTHEAST_2)
-            .minimumPartSizeInBytes(8 * 1024 * 1024)
-            .maxConcurrency(64)
-            .targetThroughputInGbps(20.0)
+            .minimumPartSizeInBytes(64 * 1024 * 1024)
+            .maxConcurrency(5)
+//            .targetThroughputInGbps(20.0)
             .credentialsProvider(
                 StaticCredentialsProvider.create(
                     AwsBasicCredentials.create(accessKeyId, secretAccessKey)
